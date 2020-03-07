@@ -7,7 +7,7 @@ import string
 import warnings
 
 from .models import (Accounts, BudgetMetaData, Categories, FileMetaData,
-                     MasterCategories, Payees, Transactions)
+                     MasterCategories, Payees, Transactions, MonthlyBudgets, Budgets) # , Budgets
 from .schema import Device
 
 
@@ -76,7 +76,7 @@ class YNAB(object):
                 raise RuntimeError('No device {!r} for {!r} at: {}'.format(device, budget, path))
         self._path = device['file']
         self._device = device['name']
-        with open(self._path, 'r') as f:
+        with open(self._path, 'r', encoding="utf8") as f:
             self._init_data(json.load(f))
 
     @property
@@ -112,11 +112,20 @@ class YNAB(object):
         # TODO:
         # - scheduledTransactions
         # - accountMappings
+        # TENTATIVELY DONE:
         # - monthlyBudgets
+        self._accounts = Accounts._from_flat(self, data['accounts'])
+        self._monthly_budgets = MonthlyBudgets._from_flat(self, data['monthlyBudgets'])
+        # with open('JSON-month_budget.json', 'w') as month_budget:
+        #   month_budget.write(json.dumps(data['monthlyBudgets'], indent=4, sort_keys=True))
         self._accounts = Accounts._from_flat(self, data['accounts'])
         self._payees = Payees._from_flat(self, data['payees'])
         self._master_categories = MasterCategories._from_flat(self, data['masterCategories'])
+        # with open('JSON-category.json', 'w') as cat:
+        #   cat.write(json.dumps(data['masterCategories'], indent=4, sort_keys=True))
         self._transactions = Transactions._from_flat(self, data['transactions'])
+        # with open('JSON-transactions.json', 'w') as transac_file:
+        #   transac_file.write(json.dumps(data['transactions'], indent=4, sort_keys=True))
         self._transactions.sort_by('date')
         self._meta_data = BudgetMetaData._from_flat(self, data['budgetMetaData'])
         self._file_meta_data = FileMetaData._from_flat(self, data['fileMetaData'])
@@ -136,6 +145,14 @@ class YNAB(object):
     @property
     def categories(self):
         return Categories(sc for mc in self.master_categories for sc in mc.categories)
+
+    @property
+    def monthly_budgets(self):
+        return self._monthly_budgets
+
+    @property
+    def budgets(self):
+        return Budgets(sc for mc in self.monthly_budgets for sc in mc.budgets)
 
     @property
     def transactions(self):

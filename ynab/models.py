@@ -17,7 +17,7 @@ class AccountType(Enum):
     SAVINGS = 'Savings'
     CREDIT_CARD = 'CreditCard'
     CASH = 'Cash'
-    LINE_OF_CREDIT = 'LineOfCredit'
+    LINE_OF_CREDIT = 'LineofCredit'
     PAYPAL = 'Paypal'
     MERCHANT_ACCOUNT = 'MerchantAccount'
     INVESTMENT_ACCOUNT = 'InvestmentAccount'
@@ -120,6 +120,10 @@ class Account(Model):
     def note(self):
         return self._entity.note
 
+    @property
+    def sortable_index(self):
+        return self._entity.sortableIndex
+
 
 class Payee(Model):
     _entity_type = schema.Payee
@@ -207,6 +211,56 @@ class MasterCategory(CategoryModel):
         return iter(self._categories)
 
 
+class BudgetModel(Model):
+    @property
+    def month(self):
+        return self._entity.month
+
+
+class Budget(BudgetModel):
+    _entity_type = schema.Budget
+
+    @force_encode
+    def __repr__(self):
+        return '<Budget: {}>'.format(self.full_name)
+
+    @property
+    def budgeted(self):
+        return self._entity.budgeted
+
+    @property
+    def category(self):
+        return self._ynab.categories.by_id(self._entity.categoryId)
+
+    @property
+    def monthly_budget(self):
+        return self._ynab.monthly_budgets.by_id(self._entity.parentMonthlyBudgetId)
+
+    @property
+    def full_name(self):
+        return '{}/{}'.format(self.monthly_budget.month, self.category.name)
+
+
+class MonthlyBudget(BudgetModel):
+    _entity_type = schema.MonthlyBudget
+
+    def __init__(self, ynab, entity):
+        super(MonthlyBudget, self).__init__(ynab, entity)
+        self._budgets = Budgets(
+            Budget(ynab, budget) for budget in self._entity.monthlySubCategoryBudgets or [])
+
+    @force_encode
+    def __repr__(self):
+        return '<Monthly Budget: {}>'.format(self.month)
+
+    @property
+    def budgets(self):
+        return self._budgets
+
+    def __iter__(self):
+        return iter(self._budgets)
+
+
 class TransactionModel(Model):
     @property
     def memo(self):
@@ -253,7 +307,7 @@ class Transaction(TransactionModel):
         super(Transaction, self).__init__(ynab, entity)
         self._sub_transactions = SubTransactions(
             SubTransaction(ynab, t) for t in self._entity.subTransactions or [])
-
+        
     @force_encode
     def __repr__(self):
         info = ''
@@ -403,6 +457,15 @@ class MasterCategories(ModelCollection):
 
 class Categories(ModelCollection):
     _model_type = Category
+    _index_key = 'full_name'
+
+class MonthlyBudgets(ModelCollection):
+    _model_type = MonthlyBudget
+    _index_key = 'month'
+
+
+class Budgets(ModelCollection):
+    _model_type = Budget
     _index_key = 'full_name'
 
 

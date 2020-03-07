@@ -75,6 +75,17 @@ class Account(DeletableEntity):
     note = StringType()
 
 
+class Budget(DeletableEntity):
+    categoryId = StringType()
+    budgeted = FloatType()
+    parentMonthlyBudgetId = StringType()
+
+
+class MonthlyBudget(DeletableEntity):
+    month = StringType()
+    monthlySubCategoryBudgets = ListType(ModelType(Budget))
+
+
 class PayeeLocation(DeletableEntity):
     parentPayeeId = StringType()
     latitude = FloatType()
